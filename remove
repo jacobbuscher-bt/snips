@@ -20,6 +20,8 @@
 
 Write-Host "Starting CentraStage removal script..."
 
+taskkill /f /im gui.exe 2>nul
+
 # 1. Define a list of directory paths to remove.
 $directories = @(
     'C:\Program Files (x86)\CentraStage',
