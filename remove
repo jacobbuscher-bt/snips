@@ -1,0 +1,95 @@
+<#
+.SYNOPSIS
+    Removes CentraStage directories and related registry keys.
+
+.DESCRIPTION
+    This script will remove the following items:
+    - Directories:
+        1) C:\Program Files (x86)\CentraStage
+        2) C:\Windows\System32\config\systemprofile\AppData\Local\CentraStage
+        3) C:\Windows\SysWOW64\config\systemprofile\AppData\Local\CentraStage
+        4) %USERPROFILE%\AppData\Local\CentraStage
+        5) %ALLUSERSPROFILE%\CentraStage
+    - Registry keys/values:
+        1) HKEY_CLASSES_ROOT\cag
+        2) HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Run\CentraStage
+#>
+
+# Make sure to run this script in an elevated PowerShell session.
+# This script will stop on any errors that occur (use -ErrorAction SilentlyContinue if you prefer to continue).
+
+Write-Host "Starting CentraStage removal script..."
+
+# 1. Define a list of directory paths to remove.
+$directories = @(
+    'C:\Program Files (x86)\CentraStage',
+    'C:\Windows\System32\config\systemprofile\AppData\Local\CentraStage',
+    'C:\Windows\SysWOW64\config\systemprofile\AppData\Local\CentraStage',
+    "$env:USERPROFILE\AppData\Local\CentraStage",
+    "$env:ALLUSERSPROFILE\CentraStage"
+)
+
+foreach ($dir in $directories) {
+    if (Test-Path -Path $dir) {
+        Write-Host "Removing directory: $dir"
+        Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -Path $dir) {
+            Write-Host "Failed to remove directory (still exists): $dir"
+        } else {
+            Write-Host "Successfully removed directory: $dir"
+        }
+    } else {
+        Write-Host "Directory not found (skipping): $dir"
+    }
+}
+
+Write-Host "`nRemoving Registry Keys/Values..."
+
+# 2. Remove registry key: HKEY_CLASSES_ROOT\cag
+$regKeyCag = "HKCR:\cag"
+if (Test-Path $regKeyCag) {
+    Write-Host "Removing registry key: $regKeyCag"
+    Remove-Item -Path $regKeyCag -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $regKeyCag) {
+        Write-Host "Failed to remove registry key: $regKeyCag"
+    } else {
+        Write-Host "Successfully removed registry key: $regKeyCag"
+    }
+}
+else {
+    Write-Host "Registry key not found (skipping): $regKeyCag"
+}
+
+# 3. Remove the 'CentraStage' value under:
+#    HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Run
+$runKeyPath = "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Run"
+$valueName  = "CentraStage"
+
+if (Test-Path $runKeyPath) {
+    $runKey = Get-Item $runKeyPath -ErrorAction SilentlyContinue
+    if ($runKey) {
+        $existingValue = (Get-ItemProperty -Path $runKeyPath -Name $valueName -ErrorAction SilentlyContinue).$valueName
+        if ($existingValue) {
+            Write-Host "Removing registry value '$valueName' under $runKeyPath"
+            Remove-ItemProperty -Path $runKeyPath -Name $valueName -Force -ErrorAction SilentlyContinue
+            $testValue = (Get-ItemProperty -Path $runKeyPath -Name $valueName -ErrorAction SilentlyContinue).$valueName
+            if ($testValue) {
+                Write-Host "Failed to remove registry value '$valueName'."
+            }
+            else {
+                Write-Host "Successfully removed registry value '$valueName'."
+            }
+        }
+        else {
+            Write-Host "Registry value '$valueName' not found (skipping)."
+        }
+    }
+    else {
+        Write-Host "Run registry key not found (skipping)."
+    }
+}
+else {
+    Write-Host "Path not found (skipping): $runKeyPath"
+}
+
+Write-Host "`nCentraStage removal script completed."
